@@ -19,10 +19,16 @@ import requests
 from bs4 import BeautifulSoup
 from flask import Flask, jsonify, render_template, send_file, request
 
+try:
+    from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeoutError
+except ImportError:
+    sync_playwright = None
+    PlaywrightTimeoutError = Exception
+
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 4 * 1024 * 1024
-USER_AGENT = 'AdvancedPythonScraper/2.0'
-TIMEOUT = 15
+USER_AGENT = 'AdvancedPythonScraper/2.1'
+TIMEOUT = 20
 MAX_PAGE_BYTES = 3 * 1024 * 1024
 MAX_CRAWL_PAGES = 100
 MAX_SITEMAP_URLS = 500
@@ -58,8 +64,8 @@ def validate_public_url(url):
         raise ValueError(f'Could not resolve hostname: {exc}') from exc
     for info in infos:
         ip = info[4][0]
-        octets = [int(x) for x in ip.split('.') if x.isdigit()]
-        private = (ip.startswith('127.') or ip.startswith('10.') or ip.startswith('192.168.') or ip.startswith('169.254.') or (len(octets) == 4 and octets[0] == 172 and 16 <= octets[1] <= 31) or ip == '0.0.0.0')
+        parts = ip.split('.')
+        private = (ip.startswith('127.') or ip.startswith('10.') or ip.startswith('192.168.') or ip.startswith('169.254.') or (len(parts) == 4 and all(x.isdigit() for x in parts) and 16 <= int(parts[0]) <= 31 and int(parts[1]) >= 0) or ip == '0.0.0.0' or ip == '::1' or ip.lower().startswith('fc') or ip.lower().startswith('fd'))
         if private:
             raise ValueError('Private or local network targets are not allowed.')
     return url
@@ -81,6 +87,7 @@ def fetch_html(url):
         raise PermissionError('This URL is disallowed by robots.txt.')
     r = requests.get(url, headers={'User-Agent': USER_AGENT, 'Accept': 'text/html,application/xhtml+xml'}, timeout=TIMEOUT, allow_redirects=True, stream=True)
     r.raise_for_status()
+    final = validate_public_url(r.url)
     ct = r.headers.get('content-type', '').lower()
     if 'text/html' not in ct and 'application/xhtml+xml' not in ct:
         raise ValueError('The URL did not return an HTML page.')
@@ -89,7 +96,35 @@ def fetch_html(url):
     if len(data) > MAX_PAGE_BYTES:
         raise ValueError('Page is larger than the configured 3 MB limit.')
     r._content = data
+    r.url = final
     return r
+
+
+def browser_scrape(url, wait_ms=1500, selector=''):
+    if sync_playwright is None:
+        raise RuntimeError('Playwright is not installed. Run: pip install -r requirements.txt && playwright install chromium')
+    url = validate_public_url(url)
+    if not allowed_by_robots(url):
+        raise PermissionError('This URL is disallowed by robots.txt.')
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(headless=True)
+        context = browser.new_context(user_agent=USER_AGENT, java_script_enabled=True)
+        page = context.new_page()
+        try:
+            response = page.goto(url, wait_until='domcontentloaded', timeout=TIMEOUT * 1000)
+            page.wait_for_timeout(max(0, min(int(wait_ms), 10000)))
+            try:
+                page.wait_for_load_state('networkidle', timeout=5000)
+            except PlaywrightTimeoutError:
+                pass
+            final = validate_public_url(page.url)
+            content = page.content()
+            if len(content.encode('utf-8')) > MAX_PAGE_BYTES:
+                raise ValueError('Rendered page is larger than the configured 3 MB limit.')
+            return {'html': content, 'url': final, 'status_code': response.status if response else 200}
+        finally:
+            context.close()
+            browser.close()
 
 
 def soup_for(html):
@@ -131,11 +166,8 @@ def pagination(soup, base):
     return list(dict.fromkeys(out))[:20]
 
 
-def scrape_page(url, selector=''):
-    requested = validate_public_url(url)
-    r = fetch_html(requested)
-    final = validate_public_url(r.url)
-    soup = soup_for(r.text)
+def parse_document(html, final, status, selector=''):
+    soup = soup_for(html)
     text = re.sub(r'\s+', ' ', soup.get_text(' ', strip=True)).strip()
     links = []
     for a in soup.find_all('a', href=True)[:MAX_ITEMS]:
@@ -143,19 +175,31 @@ def scrape_page(url, selector=''):
         try: href = validate_public_url(href)
         except ValueError: continue
         links.append({'text': a.get_text(' ', strip=True), 'url': href})
-    images = [{'alt': (x.get('alt') or '').strip(), 'url': urljoin(final, x['src'])} for x in soup.find_all('img', src=True)[:MAX_ITEMS]]
+    images = []
+    for x in soup.find_all('img', src=True)[:MAX_ITEMS]:
+        try: image_url = validate_public_url(urljoin(final, x['src']))
+        except ValueError: continue
+        images.append({'alt': (x.get('alt') or '').strip(), 'url': image_url})
     selected = []
     if selector:
         try: selected = [x.get_text(' ', strip=True) for x in soup.select(selector)[:MAX_ITEMS]]
         except Exception as exc: raise ValueError(f'Invalid CSS selector: {exc}') from exc
-    return {'url': final, 'status_code': r.status_code, 'title': soup.title.get_text(' ', strip=True) if soup.title else '', 'headings': [x.get_text(' ', strip=True) for x in soup.find_all(['h1','h2','h3'])[:MAX_ITEMS]], 'links': links, 'images': images, 'selected': selected, 'tables': tables(soup), 'pagination': pagination(soup, final), 'keywords': keywords(text), 'text': text[:200000]}
+    return {'url': final, 'status_code': status, 'title': soup.title.get_text(' ', strip=True) if soup.title else '', 'headings': [x.get_text(' ', strip=True) for x in soup.find_all(['h1','h2','h3'])[:MAX_ITEMS]], 'links': links, 'images': images, 'selected': selected, 'tables': tables(soup), 'pagination': pagination(soup, final), 'keywords': keywords(text), 'text': text[:200000]}
+
+
+def scrape_page(url, selector='', javascript=False, wait_ms=1500):
+    if javascript:
+        rendered = browser_scrape(url, wait_ms, selector)
+        return parse_document(rendered['html'], rendered['url'], rendered['status_code'], selector)
+    r = fetch_html(url)
+    return parse_document(r.text, r.url, r.status_code, selector)
 
 
 def same_domain(a, b):
     return (urlparse(a).hostname or '').lower() == (urlparse(b).hostname or '').lower()
 
 
-def crawl(start, max_pages, selector, follow_pagination=True):
+def crawl(start, max_pages, selector, follow_pagination=True, javascript=False, wait_ms=1500):
     start = validate_public_url(start)
     max_pages = max(1, min(int(max_pages), MAX_CRAWL_PAGES))
     queue, seen, pages, combined = [start], set(), [], Counter()
@@ -164,7 +208,7 @@ def crawl(start, max_pages, selector, follow_pagination=True):
         if url in seen: continue
         seen.add(url)
         try:
-            page = scrape_page(url, selector)
+            page = scrape_page(url, selector, javascript, wait_ms)
             pages.append(page)
             for item in page['keywords']: combined[item['keyword']] += item['count']
             for link in page['links']:
@@ -175,7 +219,7 @@ def crawl(start, max_pages, selector, follow_pagination=True):
         except Exception as exc:
             pages.append({'url': url, 'error': str(exc)})
         time.sleep(0.25)
-    return {'start_url': start, 'page_count': len(pages), 'pages': pages, 'keywords': [{'keyword': k, 'count': v} for k, v in combined.most_common(100)]}
+    return {'start_url': start, 'javascript': javascript, 'page_count': len(pages), 'pages': pages, 'keywords': [{'keyword': k, 'count': v} for k, v in combined.most_common(100)]}
 
 
 def parse_sitemap(url):
@@ -202,7 +246,7 @@ def write_files(job_id, result):
 
 def run_job(job_id, data):
     try:
-        result = crawl(data['url'], data.get('max_pages', 20), data.get('selector',''), data.get('follow_pagination', True))
+        result = crawl(data['url'], data.get('max_pages', 20), data.get('selector',''), data.get('follow_pagination', True), data.get('javascript', False), data.get('wait_ms', 1500))
         jp, cp = write_files(job_id, result)
         with LOCK: JOBS[job_id].update(status='completed', result=result, json_path=jp, csv_path=cp, finished_at=now())
     except Exception as exc:
@@ -215,7 +259,7 @@ def index(): return render_template('index.html')
 @app.post('/api/scrape')
 def api_scrape():
     d = request.get_json(silent=True) or {}
-    try: return jsonify(scrape_page(d.get('url',''), d.get('selector','').strip()))
+    try: return jsonify(scrape_page(d.get('url',''), d.get('selector','').strip(), bool(d.get('javascript', False)), d.get('wait_ms', 1500)))
     except PermissionError as e: return jsonify(error=str(e)), 403
     except requests.RequestException as e: return jsonify(error=f'Request failed: {e}'), 502
     except Exception as e: return jsonify(error=str(e)), 400
@@ -266,7 +310,7 @@ def api_sitemap_crawl():
     result, combined = {'start_url': d.get('url',''), 'page_count':0, 'pages':[], 'keywords':[]}, Counter()
     for url in urls:
         try:
-            p = scrape_page(url, d.get('selector','')); result['pages'].append(p)
+            p = scrape_page(url, d.get('selector',''), bool(d.get('javascript', False)), d.get('wait_ms', 1500)); result['pages'].append(p)
             for item in p.get('keywords',[]): combined[item['keyword']] += item['count']
         except Exception as e: result['pages'].append({'url':url,'error':str(e)})
         time.sleep(0.25)
@@ -287,4 +331,4 @@ def export_data():
         return send_file(io.BytesIO(out.getvalue().encode('utf-8-sig')),mimetype='text/csv',as_attachment=True,download_name='scrape.csv')
     return send_file(io.BytesIO(json.dumps(data,ensure_ascii=False,indent=2).encode()),mimetype='application/json',as_attachment=True,download_name='scrape.json')
 
-if __name__ == '__main__': app.run(host='127.0.0.1', port=5000, debug=True)
+if __name__ == '__main__': app.run(host='127.0.0.1', port=5000, debug=False)
