@@ -1,68 +1,21 @@
 <!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Python Web Scraper</title>
-  <style>
-    *{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:#f4f7fb;color:#172033}.wrap{max-width:1100px;margin:40px auto;padding:0 18px}.card{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:22px;margin-bottom:18px;box-shadow:0 8px 28px rgba(15,23,42,.06)}h1{margin:0 0 6px}p{color:#64748b}form{display:grid;grid-template-columns:1fr 1fr auto;gap:10px}input,button{padding:12px 14px;border-radius:10px;border:1px solid #cbd5e1;font:inherit}button{cursor:pointer;background:#172033;color:white;border:0;font-weight:700}button.secondary{background:#e2e8f0;color:#172033}.status{margin-top:14px;min-height:24px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.stat{font-size:28px;font-weight:800}.small{font-size:13px;color:#64748b}.list{max-height:330px;overflow:auto}.row{padding:9px 0;border-bottom:1px solid #eef2f7;word-break:break-word}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}@media(max-width:750px){form,.grid{grid-template-columns:1fr}}
-</style>
-</head>
-<body>
-<div class="wrap">
-  <div class="card">
-    <h1>Python Web Scraper</h1>
-    <p>Scrape a public HTML page, inspect headings, links, images and text, or extract elements with a CSS selector.</p>
-    <form id="scrapeForm">
-      <input id="url" type="url" placeholder="https://example.com" required>
-      <input id="selector" placeholder="Optional CSS selector, e.g. article h2">
-      <button id="scrapeBtn">Scrape</button>
-    </form>
-    <div id="status" class="status"></div>
-  </div>
-
-  <div id="results" hidden>
-    <div class="card">
-      <div class="small">Page title</div>
-      <h2 id="title">—</h2>
-      <div class="small" id="finalUrl"></div>
-      <div class="actions">
-        <button class="secondary" onclick="downloadData('json')">Download JSON</button>
-        <button class="secondary" onclick="downloadData('csv')">Download CSV</button>
-      </div>
-    </div>
-    <div class="grid">
-      <div class="card"><div class="stat" id="headCount">0</div><div class="small">Headings</div><div id="headings" class="list"></div></div>
-      <div class="card"><div class="stat" id="linkCount">0</div><div class="small">Links</div><div id="links" class="list"></div></div>
-      <div class="card"><div class="stat" id="imageCount">0</div><div class="small">Images</div><div id="images" class="list"></div></div>
-      <div class="card"><div class="stat" id="selectedCount">0</div><div class="small">CSS selector matches</div><div id="selected" class="list"></div></div>
-    </div>
-    <div class="card"><h2>Extracted text</h2><div id="text" class="list"></div></div>
-  </div>
-</div>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Advanced Python Scraper</title><style>
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:#f4f7fb;color:#172033}.wrap{max-width:1200px;margin:30px auto;padding:0 18px}.card{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:20px;margin-bottom:18px;box-shadow:0 8px 28px rgba(15,23,42,.06)}h1,h2{margin-top:0}.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:15px}.tab{padding:10px 14px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;cursor:pointer}.tab.active{background:#172033;color:#fff}form{display:grid;grid-template-columns:1fr 1fr auto;gap:10px}input,select,button{padding:12px 14px;border-radius:10px;border:1px solid #cbd5e1;font:inherit}button{cursor:pointer;background:#172033;color:white;border:0;font-weight:700}.secondary{background:#e2e8f0;color:#172033}.wide{grid-column:1/-1}.check{display:flex;gap:8px;align-items:center}.status{margin-top:12px;min-height:24px}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}.stat{font-size:26px;font-weight:800}.small{font-size:13px;color:#64748b}.list{max-height:300px;overflow:auto}.row{padding:8px 0;border-bottom:1px solid #eef2f7;word-break:break-word}.table-wrap{overflow:auto}.data-table{border-collapse:collapse;width:100%;font-size:14px}.data-table th,.data-table td{border:1px solid #e2e8f0;padding:7px;text-align:left}.job{padding:10px;border-bottom:1px solid #e2e8f0}.hidden{display:none}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}@media(max-width:850px){form,.grid{grid-template-columns:1fr}.wide{grid-column:auto}}
+</style></head><body><div class="wrap"><div class="card"><h1>Advanced Python Web Scraper</h1><p>Single pages, multi-page crawling, pagination, tables, keywords, XML sitemaps and downloadable crawl jobs.</p><div class="tabs"><button class="tab active" data-tab="single">Single Page</button><button class="tab" data-tab="crawl">Multi-Page Crawl</button><button class="tab" data-tab="sitemap">Sitemap</button><button class="tab" data-tab="jobs">Download Manager</button></div>
+<section id="single"><form id="singleForm"><input id="url" type="url" placeholder="https://example.com" required><input id="selector" placeholder="Optional CSS selector, e.g. article h2"><button>Scrape</button></form></section>
+<section id="crawl" class="hidden"><form id="crawlForm"><input id="crawlUrl" type="url" placeholder="Starting URL" required><input id="maxPages" type="number" min="1" max="100" value="20"><input id="crawlSelector" placeholder="Optional CSS selector"><label class="check"><input id="followPagination" type="checkbox" checked> Follow pagination</label><button>Start Crawl</button></form></section>
+<section id="sitemap" class="hidden"><form id="sitemapForm"><input id="sitemapUrl" type="url" placeholder="https://example.com/sitemap.xml" required><input id="sitemapMax" type="number" min="1" max="100" value="50"><input id="sitemapSelector" placeholder="Optional CSS selector"><button>Read Sitemap</button></form><div class="actions"><button class="secondary" id="sitemapCrawlBtn" disabled>Scrape Sitemap URLs</button></div></section>
+<section id="jobs" class="hidden"><div id="jobsList">Loading jobs…</div></section><div id="status" class="status"></div></div>
+<div id="results" class="hidden"><div class="card"><h2 id="title">—</h2><div class="small" id="finalUrl"></div><div class="actions"><button class="secondary" onclick="downloadCurrent('json')">Download JSON</button><button class="secondary" onclick="downloadCurrent('csv')">Download CSV</button></div></div><div class="grid"><div class="card"><div class="stat" id="pageCount">1</div><div class="small">Pages</div></div><div class="card"><div class="stat" id="headCount">0</div><div class="small">Headings</div></div><div class="card"><div class="stat" id="linkCount">0</div><div class="small">Links</div></div><div class="card"><div class="stat" id="tableCount">0</div><div class="small">Tables</div></div></div><div class="card"><h2>Keywords</h2><div id="keywords" class="list"></div></div><div class="card"><h2>Pages</h2><div id="pages" class="list"></div></div><div class="card"><h2>Tables</h2><div id="tables"></div></div><div class="card"><h2>Extracted text</h2><div id="text" class="list"></div></div></div></div>
 <script>
-let lastData=null;
-const $=id=>document.getElementById(id);
-function esc(v){const d=document.createElement('div');d.textContent=v??'';return d.innerHTML}
-function renderList(id,items,fn){$(id).innerHTML=items.length?items.map(fn).join(''):'<div class="small">None found.</div>'}
-$('scrapeForm').addEventListener('submit',async e=>{
- e.preventDefault();$('scrapeBtn').disabled=true;$('status').textContent='Scraping…';$('results').hidden=true;
- try{
-  const r=await fetch('/api/scrape',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:$('url').value,selector:$('selector').value})});
-  const d=await r.json();if(!r.ok)throw new Error(d.error||'Scrape failed');lastData=d;
-  $('title').textContent=d.title||'(untitled)';$('finalUrl').textContent=d.url;$('headCount').textContent=d.headings.length;$('linkCount').textContent=d.links.length;$('imageCount').textContent=d.images.length;$('selectedCount').textContent=d.selected.length;
-  renderList('headings',d.headings,x=>`<div class="row">${esc(x)}</div>`);
-  renderList('links',d.links,x=>`<div class="row"><div>${esc(x.text||'(no text)')}</div><div class="small">${esc(x.url)}</div></div>`);
-  renderList('images',d.images,x=>`<div class="row"><div>${esc(x.alt||'(no alt text)')}</div><div class="small">${esc(x.url)}</div></div>`);
-  renderList('selected',d.selected,x=>`<div class="row">${esc(x)}</div>`);
-  $('text').textContent=d.text||'No text found.';$('results').hidden=false;$('status').textContent='Done.';
- }catch(err){$('status').textContent='Error: '+err.message}finally{$('scrapeBtn').disabled=false}
-});
-async function downloadData(format){
- if(!lastData)return;
- const r=await fetch('/api/export',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({format,data:lastData})});
- const blob=await r.blob();const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=format==='csv'?'scrape.csv':'scrape.json';a.click();URL.revokeObjectURL(a.href);
-}
-</script>
-</body>
-</html>
+let current=null,sitemapUrls=[];const $=id=>document.getElementById(id);const esc=v=>{const d=document.createElement('div');d.textContent=v??'';return d.innerHTML};
+for(const b of document.querySelectorAll('.tab'))b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));b.classList.add('active');document.querySelectorAll('section').forEach(x=>x.classList.add('hidden'));$(b.dataset.tab).classList.remove('hidden');if(b.dataset.tab==='jobs')loadJobs()};
+function render(data){current=data;const pages=data.pages||[data];$('results').classList.remove('hidden');$('title').textContent=data.title||data.start_url||'Scrape results';$('finalUrl').textContent=data.url||data.start_url||'';$('pageCount').textContent=pages.length;$('headCount').textContent=pages.reduce((n,p)=>n+(p.headings||[]).length,0);$('linkCount').textContent=pages.reduce((n,p)=>n+(p.links||[]).length,0);$('tableCount').textContent=pages.reduce((n,p)=>n+(p.tables||[]).length,0);const keys=data.keywords||[];$('keywords').innerHTML=keys.length?keys.map(x=>`<div class="row"><b>${esc(x.keyword)}</b> — ${x.count}</div>`).join(''):'<div class="small">No keywords.</div>';$('pages').innerHTML=pages.map((p,i)=>`<div class="row"><b>${i+1}. ${esc(p.title||p.url||'')}</b><div class="small">${esc(p.url||'')} ${p.error?' — '+esc(p.error):''}</div></div>`).join('');let html='';pages.forEach(p=>(p.tables||[]).forEach(t=>{html+=`<div class="table-wrap"><h3>Page: ${esc(p.title||p.url||'')} — Table ${t.index}</h3>${t.caption?`<div class="small">${esc(t.caption)}</div>`:''}<table class="data-table">${t.rows.map(r=>'<tr>'+r.map(c=>`<td>${esc(c)}</td>`).join('')+'</tr>').join('')}</table></div><br>`}));$('tables').innerHTML=html||'<div class="small">No tables found.</div>';$('text').textContent=pages.map(p=>p.text||'').join('\n\n');}
+$('singleForm').onsubmit=async e=>{e.preventDefault();$('status').textContent='Scraping…';try{const r=await fetch('/api/scrape',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:$('url').value,selector:$('selector').value})});const d=await r.json();if(!r.ok)throw Error(d.error);render(d);$('status').textContent='Done.'}catch(x){$('status').textContent='Error: '+x.message}};
+$('crawlForm').onsubmit=async e=>{e.preventDefault();$('status').textContent='Starting background crawl…';const r=await fetch('/api/crawl',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:$('crawlUrl').value,max_pages:+$('maxPages').value,selector:$('crawlSelector').value,follow_pagination:$('followPagination').checked})});const d=await r.json();if(!r.ok)return $('status').textContent='Error: '+d.error;$('status').textContent='Job '+d.job_id+' started. Open Download Manager for progress.';poll(d.job_id)};
+async function poll(id){const r=await fetch('/api/jobs/'+id);const d=await r.json();if(d.status==='completed'){render(d.result);$('status').textContent='Crawl completed.';return}if(d.status==='failed')return $('status').textContent='Crawl failed: '+d.error;setTimeout(()=>poll(id),1000)}
+$('sitemapForm').onsubmit=async e=>{e.preventDefault();$('status').textContent='Reading sitemap…';try{const r=await fetch('/api/sitemap',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:$('sitemapUrl').value})});const d=await r.json();if(!r.ok)throw Error(d.error);sitemapUrls=d.urls;$('sitemapCrawlBtn').disabled=!sitemapUrls.length;$('status').textContent=`Found ${d.count} sitemap URL(s).`;$('pages').innerHTML=sitemapUrls.map((u,i)=>`<div class="row">${i+1}. ${esc(u)}</div>`).join('')}catch(x){$('status').textContent='Error: '+x.message}};
+$('sitemapCrawlBtn').onclick=async()=>{ $('status').textContent='Scraping sitemap URLs…';const r=await fetch('/api/sitemap-crawl',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:$('sitemapUrl').value,max_pages:+$('sitemapMax').value,selector:$('sitemapSelector').value})});const d=await r.json();if(!r.ok)return $('status').textContent='Error: '+d.error;render(d.result);$('status').textContent='Sitemap crawl completed.'};
+async function loadJobs(){const r=await fetch('/api/jobs');const js=await r.json();$('jobsList').innerHTML=js.length?js.map(j=>`<div class="job"><b>${j.id}</b> — ${j.status}<div class="small">Created: ${esc(j.created_at)} ${j.error?' — '+esc(j.error):''}</div>${j.status==='completed'?`<div class="actions"><a href="/api/jobs/${j.id}/download/json">JSON</a> <a href="/api/jobs/${j.id}/download/csv">CSV</a></div>`:''}</div>`).join(''):'No jobs yet.'}
+function downloadCurrent(fmt){if(!current)return;fetch('/api/export',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({format:fmt,data:current})}).then(r=>r.blob()).then(b=>{const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='scrape.'+fmt;a.click()})}
+</script></body></html>
