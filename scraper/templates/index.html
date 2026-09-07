@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Python Web Scraper</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:#f4f7fb;color:#172033}.wrap{max-width:1100px;margin:40px auto;padding:0 18px}.card{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:22px;margin-bottom:18px;box-shadow:0 8px 28px rgba(15,23,42,.06)}h1{margin:0 0 6px}p{color:#64748b}form{display:grid;grid-template-columns:1fr 1fr auto;gap:10px}input,button{padding:12px 14px;border-radius:10px;border:1px solid #cbd5e1;font:inherit}button{cursor:pointer;background:#172033;color:white;border:0;font-weight:700}button.secondary{background:#e2e8f0;color:#172033}.status{margin-top:14px;min-height:24px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.stat{font-size:28px;font-weight:800}.small{font-size:13px;color:#64748b}.list{max-height:330px;overflow:auto}.row{padding:9px 0;border-bottom:1px solid #eef2f7;word-break:break-word}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}@media(max-width:750px){form,.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <h1>Python Web Scraper</h1>
+    <p>Scrape a public HTML page, inspect headings, links, images and text, or extract elements with a CSS selector.</p>
+    <form id="scrapeForm">
+      <input id="url" type="url" placeholder="https://example.com" required>
+      <input id="selector" placeholder="Optional CSS selector, e.g. article h2">
+      <button id="scrapeBtn">Scrape</button>
+    </form>
+    <div id="status" class="status"></div>
+  </div>
+
+  <div id="results" hidden>
+    <div class="card">
+      <div class="small">Page title</div>
+      <h2 id="title">—</h2>
+      <div class="small" id="finalUrl"></div>
+      <div class="actions">
+        <button class="secondary" onclick="downloadData('json')">Download JSON</button>
+        <button class="secondary" onclick="downloadData('csv')">Download CSV</button>
+      </div>
+    </div>
+    <div class="grid">
+      <div class="card"><div class="stat" id="headCount">0</div><div class="small">Headings</div><div id="headings" class="list"></div></div>
+      <div class="card"><div class="stat" id="linkCount">0</div><div class="small">Links</div><div id="links" class="list"></div></div>
+      <div class="card"><div class="stat" id="imageCount">0</div><div class="small">Images</div><div id="images" class="list"></div></div>
+      <div class="card"><div class="stat" id="selectedCount">0</div><div class="small">CSS selector matches</div><div id="selected" class="list"></div></div>
+    </div>
+    <div class="card"><h2>Extracted text</h2><div id="text" class="list"></div></div>
+  </div>
+</div>
+<script>
+let lastData=null;
+const $=id=>document.getElementById(id);
+function esc(v){const d=document.createElement('div');d.textContent=v??'';return d.innerHTML}
+function renderList(id,items,fn){$(id).innerHTML=items.length?items.map(fn).join(''):'<div class="small">None found.</div>'}
+$('scrapeForm').addEventListener('submit',async e=>{
+ e.preventDefault();$('scrapeBtn').disabled=true;$('status').textContent='Scraping…';$('results').hidden=true;
+ try{
+  const r=await fetch('/api/scrape',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:$('url').value,selector:$('selector').value})});
+  const d=await r.json();if(!r.ok)throw new Error(d.error||'Scrape failed');lastData=d;
+  $('title').textContent=d.title||'(untitled)';$('finalUrl').textContent=d.url;$('headCount').textContent=d.headings.length;$('linkCount').textContent=d.links.length;$('imageCount').textContent=d.images.length;$('selectedCount').textContent=d.selected.length;
+  renderList('headings',d.headings,x=>`<div class="row">${esc(x)}</div>`);
+  renderList('links',d.links,x=>`<div class="row"><div>${esc(x.text||'(no text)')}</div><div class="small">${esc(x.url)}</div></div>`);
+  renderList('images',d.images,x=>`<div class="row"><div>${esc(x.alt||'(no alt text)')}</div><div class="small">${esc(x.url)}</div></div>`);
+  renderList('selected',d.selected,x=>`<div class="row">${esc(x)}</div>`);
+  $('text').textContent=d.text||'No text found.';$('results').hidden=false;$('status').textContent='Done.';
+ }catch(err){$('status').textContent='Error: '+err.message}finally{$('scrapeBtn').disabled=false}
+});
+async function downloadData(format){
+ if(!lastData)return;
+ const r=await fetch('/api/export',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({format,data:lastData})});
+ const blob=await r.blob();const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=format==='csv'?'scrape.csv':'scrape.json';a.click();URL.revokeObjectURL(a.href);
+}
+</script>
+</body>
+</html>
